@@ -108,3 +108,170 @@ curl http://localhost:8080/health \
 {
   "ok": true
 }
+```
+
+---
+
+### 3. 浏览器沙箱 (Browser Sandbox)
+
+提供高隔离、指纹混淆的浏览器环境，支持页面导航和交互。
+
+#### 3.1 创建会话
+
+创建一个新的浏览器会话（Context）。每个会话拥有独立的指纹和存储。
+
+- **URL**: `/browser/sessions`
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+**请求参数 (Body):**
+
+| 字段名 | 类型 | 必填 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `device` | string | 否 | 设备类型，可选 `desktop` (默认) 或 `mobile` |
+| `viewport` | object | 否 | 自定义视口大小 `{ width: number, height: number }` |
+
+**请求示例:**
+
+```bash
+curl -X POST http://localhost:8080/browser/sessions \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device": "desktop"
+  }'
+```
+
+**成功响应 (200 OK):**
+
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 3.2 页面跳转
+
+控制会话中的页面跳转到指定 URL。
+
+- **URL**: `/browser/sessions/:id/navigate`
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+**请求参数 (Body):**
+
+| 字段名 | 类型 | 必填 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `url` | string | 是 | 目标 URL |
+| `waitUntil` | string | 否 | 等待条件: `load`, `domcontentloaded`, `networkidle`, `commit` (默认 `load`) |
+
+**请求示例:**
+
+```bash
+curl -X POST http://localhost:8080/browser/sessions/YOUR_SESSION_ID/navigate \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "waitUntil": "domcontentloaded"
+  }'
+```
+
+**成功响应 (200 OK):**
+
+```json
+{
+  "url": "https://example.com/",
+  "screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ..." // Base64 编码的页面截图
+}
+```
+
+#### 3.3 页面交互
+
+在当前页面执行交互操作。
+
+- **URL**: `/browser/sessions/:id/action`
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+**请求参数 (Body):**
+
+| 字段名 | 类型 | 必填 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `action` | string | 是 | 动作类型: `click`, `fill`, `type`, `press`, `scroll`, `evaluate`, `screenshot` |
+| `selector` | string | 否 | CSS 选择器 (部分动作必填) |
+| `value` | string | 否 | 输入值 (fill, type, press 必填) |
+| `script` | string | 否 | JavaScript 脚本 (evaluate 必填) |
+| `x` | number | 否 | 坐标点击/滚动时使用的 X 轴像素位置 |
+| `y` | number | 否 | 坐标点击/滚动时使用的 Y 轴像素位置 |
+
+**请求示例 (点击):**
+
+```bash
+curl -X POST http://localhost:8080/browser/sessions/YOUR_SESSION_ID/action \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "click",
+    "selector": "#submit-button"
+  }'
+```
+
+**请求示例 (坐标点击):**
+
+```bash
+curl -X POST http://localhost:8080/browser/sessions/YOUR_SESSION_ID/action \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "click",
+    "x": 200,
+    "y": 300
+  }'
+```
+
+> 注意：当提供 `x` 与 `y` 坐标时，`selector` 可省略。坐标以页面视口左上角为原点，单位为像素。
+
+**请求示例 (输入):**
+
+```bash
+curl -X POST http://localhost:8080/browser/sessions/YOUR_SESSION_ID/action \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "fill",
+    "selector": "input[name=\"q\"]",
+    "value": "search query"
+  }'
+```
+
+**成功响应 (200 OK):**
+
+```json
+{
+  "result": null, // evaluate 操作会有返回值
+  "screenshot": "..." // 操作后的页面截图
+}
+```
+
+#### 3.4 销毁会话
+
+关闭并销毁浏览器会话，释放资源。
+
+- **URL**: `/browser/sessions/:id`
+- **Method**: `DELETE`
+
+**请求示例:**
+
+```bash
+curl -X DELETE http://localhost:8080/browser/sessions/YOUR_SESSION_ID \
+  -H "Authorization: Bearer your-secret-token"
+```
+
+**成功响应 (200 OK):**
+
+```json
+{
+  "success": true
+}
+```

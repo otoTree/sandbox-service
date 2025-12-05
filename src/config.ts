@@ -4,6 +4,13 @@ export const PORT = process.env.PORT ? Number(process.env.PORT) : 8080
 export const AUTH_TOKEN = process.env.AUTH_TOKEN || 'dev'
 //console.log("[AUTH_TOKEN] ",AUTH_TOKEN)
 
+// Browser Configuration
+export const BROWSER_CONFIG = {
+  maxSessions: process.env.MAX_BROWSER_SESSIONS ? Number(process.env.MAX_BROWSER_SESSIONS) : 10,
+  sessionTimeout: process.env.BROWSER_SESSION_TIMEOUT ? Number(process.env.BROWSER_SESSION_TIMEOUT) : 600000, // 10 mins
+  headless: process.env.BROWSER_HEADLESS !== 'false', // default true
+}
+
 // Minimal secure-by-default sandbox config
 export const sandboxConfig: SandboxRuntimeConfig = {
   network: {

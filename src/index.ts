@@ -4,6 +4,7 @@ import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import { PORT, sandboxConfig } from './config.js'
 import { executeHandler } from './routes/execute.js'
 import { healthHandler } from './routes/health.js'
+import { createSessionHandler, destroySessionHandler, navigateHandler, actionHandler } from './routes/browser.js'
 import { bearerAuth } from './middleware/auth.js'
 
 // --- Initialize app ---
@@ -14,6 +15,12 @@ app.use(bearerAuth)
 // --- Routes ---
 app.post('/execute', executeHandler)
 app.get('/health', healthHandler)
+
+// Browser Routes
+app.post('/browser/sessions', createSessionHandler)
+app.delete('/browser/sessions/:id', destroySessionHandler)
+app.post('/browser/sessions/:id/navigate', navigateHandler)
+app.post('/browser/sessions/:id/action', actionHandler)
 
 // Start server
 app.listen(PORT, async () => {

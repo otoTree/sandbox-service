@@ -39,7 +39,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm install
+RUN npm install && npx playwright install
 
 # Copy the rest of the application
 COPY . .

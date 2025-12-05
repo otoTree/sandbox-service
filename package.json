@@ -11,16 +11,20 @@
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.4",
-    "undici": "^6.19.8",
-    "mime-types": "^2.1.35",
     "dotenv": "^17.2.3",
     "express": "^4.19.2",
+    "fingerprint-generator": "^2.1.78",
+    "fingerprint-injector": "^2.1.78",
+    "mime-types": "^2.1.35",
+    "playwright": "^1.57.0",
+    "undici": "^6.19.8",
+    "uuid": "^13.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "@types/node": "^18",
     "@types/mime-types": "^2.1.4",
+    "@types/node": "^18",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   },

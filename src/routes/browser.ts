@@ -26,7 +26,7 @@ export const navigateHandler = async (req: Request, res: Response) => {
   const { id } = req.params
   try {
     const body = navigateSchema.parse(req.body)
-    const result = await BrowserManager.getInstance().navigate(id, body.url, body.waitUntil)
+    const result = await BrowserManager.getInstance().navigate(id, body.url, body.waitUntil, body.tabId)
     res.json(result)
   } catch (error: any) {
     res.status(400).json({ error: error.message })
@@ -37,8 +37,50 @@ export const actionHandler = async (req: Request, res: Response) => {
   const { id } = req.params
   try {
     const body = actionSchema.parse(req.body)
-    const result = await BrowserManager.getInstance().performAction(id, body.action, body.selector, body.value, body.script, body.x, body.y)
+    const result = await BrowserManager.getInstance().performAction(id, body.action, body.selector, body.value, body.script, body.x, body.y, body.tabId)
     res.json(result)
+  } catch (error: any) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+export const getContentHandler = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { tabId } = req.query
+  try {
+    const result = await BrowserManager.getInstance().getContent(id, tabId as string)
+    res.setHeader('Content-Type', 'text/html')
+    res.send(result.content)
+  } catch (error: any) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+export const getTabsHandler = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const tabs = await BrowserManager.getInstance().getTabs(id)
+    res.json(tabs)
+  } catch (error: any) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+export const createTabHandler = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const result = await BrowserManager.getInstance().createTab(id)
+    res.json(result)
+  } catch (error: any) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+export const closeTabHandler = async (req: Request, res: Response) => {
+  const { id, tabId } = req.params
+  try {
+    await BrowserManager.getInstance().closeTab(id, tabId)
+    res.json({ success: true })
   } catch (error: any) {
     res.status(400).json({ error: error.message })
   }

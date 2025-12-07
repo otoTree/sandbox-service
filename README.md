@@ -103,6 +103,53 @@ Notes:
 curl http://localhost:8080/health
 ```
 
+## Browser Sandbox API
+
+示例基于 Bearer 认证（`Authorization: Bearer your-secret-token`）。
+
+```
+# 1) 创建会话
+SESSION_ID=$(curl -sS \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"device":"desktop"}' \
+  http://localhost:8080/browser/sessions | jq -r .sessionId)
+
+# 2) 页面跳转
+curl -sS \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com","waitUntil":"domcontentloaded"}' \
+  http://localhost:8080/browser/sessions/$SESSION_ID/navigate | jq
+
+# 3) 获取页面源码（text/html）
+curl -sS \
+  -H "Authorization: Bearer your-secret-token" \
+  "http://localhost:8080/browser/sessions/$SESSION_ID/content" > page.html
+
+# 3.1) 指定标签页获取源码
+curl -sS \
+  -H "Authorization: Bearer your-secret-token" \
+  "http://localhost:8080/browser/sessions/$SESSION_ID/content?tabId=$TAB_ID" > tab.html
+
+# 4) 标签页管理
+curl -sS -H "Authorization: Bearer your-secret-token" \
+  http://localhost:8080/browser/sessions/$SESSION_ID/tabs | jq
+
+curl -sS -X POST -H "Authorization: Bearer your-secret-token" \
+  http://localhost:8080/browser/sessions/$SESSION_ID/tabs | jq
+
+curl -sS -X DELETE -H "Authorization: Bearer your-secret-token" \
+  http://localhost:8080/browser/sessions/$SESSION_ID/tabs/$TAB_ID
+
+# 5) 页面交互示例（点击）
+curl -sS \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"click","selector":"#submit"}' \
+  http://localhost:8080/browser/sessions/$SESSION_ID/action | jq
+```
+
 ## Extending
 
 - Add more filesystem/network rules in `sandboxConfig`.

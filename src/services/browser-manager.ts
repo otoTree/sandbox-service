@@ -8,7 +8,8 @@ import { sandboxConfig, BROWSER_CONFIG } from '../config.js'
 interface Session {
   id: string
   context: BrowserContext
-  page: Page
+  pages: Map<string, Page>
+  activePageId: string
   lastActive: number
   queue: Promise<any>
 }
@@ -97,12 +98,45 @@ export class BrowserManager {
     })
 
     await this.fingerprintInjector.attachFingerprintToPlaywright(context, fingerprint)
-    const page = await context.newPage()
-    const id = uuidv4()
     
-    const session: Session = { id, context, page, lastActive: Date.now(), queue: Promise.resolve() }
-    this.sessions.set(id, session)
-    return id
+    // Initial page
+    const page = await context.newPage()
+    const pageId = uuidv4()
+    
+    const session: Session = { 
+        id: uuidv4(), 
+        context, 
+        pages: new Map([[pageId, page]]), 
+        activePageId: pageId,
+        lastActive: Date.now(), 
+        queue: Promise.resolve() 
+    }
+
+    // Handle new pages (popups)
+    context.on('page', async (newPage) => {
+        const newPageId = uuidv4()
+        session.pages.set(newPageId, newPage)
+        // Ensure we clean up if this page is closed
+        newPage.on('close', () => {
+            session.pages.delete(newPageId)
+            if (session.activePageId === newPageId) {
+                const firstId = session.pages.keys().next().value
+                if (firstId) session.activePageId = firstId
+            }
+        })
+    })
+
+    // Clean up initial page if closed
+    page.on('close', () => {
+        session.pages.delete(pageId)
+        if (session.activePageId === pageId) {
+            const firstId = session.pages.keys().next().value
+            if (firstId) session.activePageId = firstId
+        }
+    })
+
+    this.sessions.set(session.id, session)
+    return session.id
   }
 
   async destroySession(id: string) {
@@ -119,6 +153,17 @@ export class BrowserManager {
       return session
   }
 
+  private getPage(session: Session, tabId?: string): { page: Page, tabId: string } {
+      const targetId = tabId || session.activePageId
+      const page = session.pages.get(targetId)
+      if (!page) throw new Error('Tab/Page not found')
+      
+      // Update active page if explicitly switched
+      if (tabId) session.activePageId = tabId
+      
+      return { page, tabId: targetId }
+  }
+
   private cleanupStaleSessions() {
       const now = Date.now()
       for (const [id, session] of this.sessions.entries()) {
@@ -129,77 +174,174 @@ export class BrowserManager {
       }
   }
 
-  async navigate(id: string, url: string, waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit') {
+  async getTabs(id: string) {
+      const session = this.getSession(id)
+      if (!session) throw new Error('Session not found')
+      
+      const tabs = []
+      for (const [tabId, page] of session.pages.entries()) {
+          let title = ''
+          try { title = await page.title() } catch {}
+          tabs.push({
+              id: tabId,
+              url: page.url(),
+              title,
+              active: tabId === session.activePageId
+          })
+      }
+      return tabs
+  }
+
+  async createTab(id: string) {
+      const session = this.getSession(id)
+      if (!session) throw new Error('Session not found')
+      
+      return this.enqueue(session, async () => {
+          const page = await session.context.newPage()
+          
+          // Find the ID assigned by the context 'page' event listener
+          let tabId: string | undefined
+          for (const [tid, p] of session.pages.entries()) {
+              if (p === page) {
+                  tabId = tid
+                  break
+              }
+          }
+
+          // Fallback if listener didn't catch it (unlikely)
+          if (!tabId) {
+              tabId = uuidv4()
+              session.pages.set(tabId, page)
+              page.on('close', () => {
+                  session.pages.delete(tabId!)
+                  if (session.activePageId === tabId) {
+                      const firstId = session.pages.keys().next().value
+                      if (firstId) session.activePageId = firstId
+                  }
+              })
+          }
+
+          session.activePageId = tabId
+          return { tabId }
+      })
+  }
+
+  async closeTab(id: string, tabId: string) {
+      const session = this.getSession(id)
+      if (!session) throw new Error('Session not found')
+      
+      return this.enqueue(session, async () => {
+          const page = session.pages.get(tabId)
+          if (!page) throw new Error('Tab not found')
+          
+          await page.close()
+          // Event listener will handle map deletion and active switching
+          
+          return { success: true }
+      })
+  }
+
+  async navigate(id: string, url: string, waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit', tabId?: string) {
     const session = this.getSession(id)
     if (!session) throw new Error('Session not found')
     
     return this.enqueue(session, async () => {
-        await session.page.goto(url, { waitUntil })
-        const buffer = await session.page.screenshot()
+        const { page, tabId: currentTabId } = this.getPage(session, tabId)
+        await page.goto(url, { waitUntil })
+        const buffer = await page.screenshot()
         const screenshot = buffer.toString('base64')
-        return { url: session.page.url(), screenshot }
+        return { url: page.url(), screenshot, tabId: currentTabId }
     })
   }
 
-  async performAction(id: string, action: string, selector?: string, value?: string, script?: string, x?: number, y?: number) {
+  async getContent(id: string, tabId?: string) {
+      const session = this.getSession(id)
+      if (!session) throw new Error('Session not found')
+      
+      return this.enqueue(session, async () => {
+          const { page, tabId: currentTabId } = this.getPage(session, tabId)
+          const content = await page.content()
+          return { content, tabId: currentTabId }
+      })
+  }
+
+  async performAction(id: string, action: string, selector?: string, value?: string, script?: string, x?: number, y?: number, tabId?: string) {
       const session = this.getSession(id)
       if (!session) throw new Error('Session not found')
 
       return this.enqueue(session, async () => {
+          const { page, tabId: currentTabId } = this.getPage(session, tabId)
           let result = null
+
           if (selector) {
               try {
-                  await session.page.waitForSelector(selector, { timeout: 5000 })
+                  await page.waitForSelector(selector, { timeout: 5000 })
               } catch (e) {
-                  // ignore timeout, let action fail if needed
+                  // ignore timeout
               }
           }
 
           switch (action) {
               case 'click':
                   if (x !== undefined && y !== undefined) {
-                      await session.page.mouse.click(x, y)
+                      await page.mouse.click(x, y)
                   } else if (selector) {
-                      await session.page.click(selector)
+                      const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
+                      await page.click(selector)
+                      await navPromise
                   } else {
                       throw new Error('Selector or coordinates (x, y) required for click')
                   }
                   break
               case 'fill':
                   if (!selector || value === undefined) throw new Error('Selector and value required for fill')
-                  await session.page.fill(selector, value)
+                  await page.fill(selector, value)
                   break
               case 'type':
                   if (!selector || value === undefined) throw new Error('Selector and value required for type')
-                  await session.page.type(selector, value)
+                  await page.type(selector, value)
                   break
               case 'screenshot':
                   // just screenshot
                   break
               case 'evaluate':
                   if (!script) throw new Error('Script required for evaluate')
-                  result = await session.page.evaluate(script)
+                  result = await page.evaluate(script)
                   break
               case 'press':
                    if (!selector || !value) throw new Error('Selector and key (value) required for press')
-                   await session.page.press(selector, value)
+                   if (value === 'Enter') {
+                       const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
+                       await page.press(selector, value)
+                       await navPromise
+                   } else {
+                       await page.press(selector, value)
+                   }
                    break
               case 'scroll':
                   if (selector) {
-                      await session.page.locator(selector).scrollIntoViewIfNeeded()
+                      await page.locator(selector).scrollIntoViewIfNeeded()
                   } else if (x !== undefined && y !== undefined) {
-                      await session.page.mouse.wheel(x, y)
+                      await page.mouse.wheel(x, y)
                   } else {
-                      await session.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+                      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
                   }
                   break
               default:
                   throw new Error(`Unknown action: ${action}`)
           }
           
-          const buffer = await session.page.screenshot()
+          try {
+              // Wait for network to settle (catch redirects or SPA updates)
+              await page.waitForLoadState('networkidle', { timeout: 2000 })
+          } catch (e) {
+              // If network is busy, at least ensure DOM is ready
+              try { await page.waitForLoadState('domcontentloaded', { timeout: 2000 }) } catch {}
+          }
+          
+          const buffer = await page.screenshot()
           const screenshot = buffer.toString('base64')
-          return { result, screenshot }
+          return { result, screenshot, url: page.url(), tabId: currentTabId }
       })
   }
 

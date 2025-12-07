@@ -4,7 +4,7 @@ import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import { PORT, sandboxConfig } from './config.js'
 import { executeHandler } from './routes/execute.js'
 import { healthHandler } from './routes/health.js'
-import { createSessionHandler, destroySessionHandler, navigateHandler, actionHandler } from './routes/browser.js'
+import { createSessionHandler, destroySessionHandler, navigateHandler, actionHandler, getTabsHandler, createTabHandler, closeTabHandler, getContentHandler } from './routes/browser.js'
 import { bearerAuth } from './middleware/auth.js'
 
 // --- Initialize app ---
@@ -21,6 +21,10 @@ app.post('/browser/sessions', createSessionHandler)
 app.delete('/browser/sessions/:id', destroySessionHandler)
 app.post('/browser/sessions/:id/navigate', navigateHandler)
 app.post('/browser/sessions/:id/action', actionHandler)
+app.get('/browser/sessions/:id/content', getContentHandler)
+app.get('/browser/sessions/:id/tabs', getTabsHandler)
+app.post('/browser/sessions/:id/tabs', createTabHandler)
+app.delete('/browser/sessions/:id/tabs/:tabId', closeTabHandler)
 
 // Start server
 app.listen(PORT, async () => {

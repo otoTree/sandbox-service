@@ -23,7 +23,8 @@ export const createSessionSchema = z.object({
 
 export const navigateSchema = z.object({
   url: z.string().url(),
-  waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle', 'commit']).optional()
+  waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle', 'commit']).optional(),
+  tabId: z.string().optional()
 })
 
 export const actionSchema = z.object({
@@ -33,7 +34,8 @@ export const actionSchema = z.object({
   x: z.number().optional(),
   y: z.number().optional(),
   value: z.string().optional(), // for fill/type
-  script: z.string().optional() // for evaluate
+  script: z.string().optional(), // for evaluate
+  tabId: z.string().optional()
 })
 
 export type CreateSessionRequest = z.infer<typeof createSessionSchema>

@@ -148,16 +148,20 @@ Navigates to a URL.
 
 **Endpoint:** `POST /browser/sessions/:id/action`
 
-Performs an action on the page.
+Performs an action on the page. Supports human-like interactions and complex mouse movements.
 
 **Request Body:**
 
 ```json
 {
-  "action": "click",
-  "selector": "#submit-button",
+  "action": "drag",
+  "selector": "#slider",
   "x": 100,
   "y": 200,
+  "endX": 300,
+  "endY": 200,
+  "steps": 50,
+  "duration": 500,
   "value": "text to type",
   "script": "return document.title",
   "tabId": "optional-tab-id"
@@ -166,11 +170,15 @@ Performs an action on the page.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | Yes | 'click', 'fill', 'screenshot', 'evaluate', 'press', 'type', 'scroll'. |
-| `selector` | string | No | CSS selector. |
-| `x` | number | No | X coordinate. |
-| `y` | number | No | Y coordinate. |
-| `value` | string | No | Value for 'fill', 'type', or key for 'press'. |
+| `action` | string | Yes | 'click', 'fill', 'screenshot', 'evaluate', 'press', 'type', 'scroll', 'hover', 'drag', 'mouse_move', 'mouse_down', 'mouse_up'. |
+| `selector` | string | No | CSS selector. Optional for 'type'/'press' (targets focused element) and 'click' (if x,y provided). |
+| `x` | number | No | Start X coordinate (for click, scroll, drag, mouse_move). |
+| `y` | number | No | Start Y coordinate (for click, scroll, drag, mouse_move). |
+| `endX` | number | No | End X coordinate (required for 'drag' if using coordinates). |
+| `endY` | number | No | End Y coordinate (required for 'drag' if using coordinates). |
+| `steps` | number | No | Number of intermediate mouse steps (default: 20 for drag, 5 for move). Controls smoothness. |
+| `duration` | number | No | Delay in ms. Used for 'click' (hold time), 'type' (keystroke delay), 'drag' (pre-drag delay). |
+| `value` | string | No | Text for 'fill'/'type', key for 'press', or target selector for 'drag'. |
 | `script` | string | No | JavaScript code for 'evaluate'. |
 | `tabId` | string | No | Target tab ID. |
 

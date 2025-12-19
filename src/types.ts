@@ -28,14 +28,20 @@ export const navigateSchema = z.object({
 })
 
 export const actionSchema = z.object({
-  action: z.enum(['click', 'fill', 'screenshot', 'evaluate', 'press', 'type', 'scroll']),
+  action: z.enum(['click', 'fill', 'screenshot', 'evaluate', 'press', 'type', 'scroll', 'hover', 'drag', 'mouse_move', 'mouse_down', 'mouse_up']),
   selector: z.string().optional(),
   // Coordinates for click/scroll actions
   x: z.number().optional(),
   y: z.number().optional(),
+  // Target coordinates for drag/move
+  endX: z.number().optional(),
+  endY: z.number().optional(),
   value: z.string().optional(), // for fill/type
   script: z.string().optional(), // for evaluate
-  tabId: z.string().optional()
+  tabId: z.string().optional(),
+  // Options for fine-tuning interactions
+  duration: z.number().optional(), // delay in ms
+  steps: z.number().optional(), // steps for mouse movement
 })
 
 export type CreateSessionRequest = z.infer<typeof createSessionSchema>

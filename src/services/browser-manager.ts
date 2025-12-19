@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { createHttpProxyServer } from '@anthropic-ai/sandbox-runtime/dist/sandbox/http-proxy.js'
 import { sandboxConfig, BROWSER_CONFIG } from '../config.js'
 
+import { ActionRequest } from '../types.js'
+
 interface Session {
   id: string
   context: BrowserContext
@@ -265,15 +267,17 @@ export class BrowserManager {
       })
   }
 
-  async performAction(id: string, action: string, selector?: string, value?: string, script?: string, x?: number, y?: number, tabId?: string) {
+  async performAction(id: string, options: ActionRequest) {
       const session = this.getSession(id)
       if (!session) throw new Error('Session not found')
+
+      const { action, selector, value, script, x, y, endX, endY, tabId, duration, steps } = options
 
       return this.enqueue(session, async () => {
           const { page, tabId: currentTabId } = this.getPage(session, tabId)
           let result = null
 
-          if (selector) {
+          if (selector && !['hover', 'drag', 'scroll'].includes(action)) {
               try {
                   await page.waitForSelector(selector, { timeout: 5000 })
               } catch (e) {
@@ -284,10 +288,10 @@ export class BrowserManager {
           switch (action) {
               case 'click':
                   if (x !== undefined && y !== undefined) {
-                      await page.mouse.click(x, y)
+                      await page.mouse.click(x, y, { delay: duration })
                   } else if (selector) {
                       const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
-                      await page.click(selector)
+                      await page.click(selector, { delay: duration })
                       await navPromise
                   } else {
                       throw new Error('Selector or coordinates (x, y) required for click')
@@ -298,8 +302,12 @@ export class BrowserManager {
                   await page.fill(selector, value)
                   break
               case 'type':
-                  if (!selector || value === undefined) throw new Error('Selector and value required for type')
-                  await page.type(selector, value)
+                  if (value === undefined) throw new Error('Value required for type')
+                  if (selector) {
+                      await page.type(selector, value, { delay: duration })
+                  } else {
+                      await page.keyboard.type(value, { delay: duration })
+                  }
                   break
               case 'screenshot':
                   // just screenshot
@@ -309,13 +317,17 @@ export class BrowserManager {
                   result = await page.evaluate(script)
                   break
               case 'press':
-                   if (!selector || !value) throw new Error('Selector and key (value) required for press')
-                   if (value === 'Enter') {
-                       const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
-                       await page.press(selector, value)
-                       await navPromise
+                   if (!value) throw new Error('Key (value) required for press')
+                   if (selector) {
+                       if (value === 'Enter') {
+                           const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
+                           await page.press(selector, value, { delay: duration })
+                           await navPromise
+                       } else {
+                           await page.press(selector, value, { delay: duration })
+                       }
                    } else {
-                       await page.press(selector, value)
+                       await page.keyboard.press(value, { delay: duration })
                    }
                    break
               case 'scroll':
@@ -326,6 +338,35 @@ export class BrowserManager {
                   } else {
                       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
                   }
+                  break
+              case 'hover':
+                  if (!selector) throw new Error('Selector required for hover')
+                  await page.hover(selector)
+                  break
+              case 'drag':
+                  if (selector && value) {
+                      await page.dragAndDrop(selector, value)
+                  } else if (x !== undefined && y !== undefined && endX !== undefined && endY !== undefined) {
+                      await page.mouse.move(x, y)
+                      await page.mouse.down()
+                      await page.mouse.move(endX, endY, { steps: steps || 20 })
+                      await page.mouse.up()
+                  } else {
+                      throw new Error('Selector+Value or Start(x,y)+End(x,y) required for drag')
+                  }
+                  break
+              case 'mouse_move':
+                  if (x !== undefined && y !== undefined) {
+                      await page.mouse.move(x, y, { steps: steps || 5 })
+                  } else {
+                      throw new Error('Coordinates (x, y) required for mouse_move')
+                  }
+                  break
+              case 'mouse_down':
+                  await page.mouse.down()
+                  break
+              case 'mouse_up':
+                  await page.mouse.up()
                   break
               default:
                   throw new Error(`Unknown action: ${action}`)

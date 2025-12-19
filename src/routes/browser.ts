@@ -37,7 +37,7 @@ export const actionHandler = async (req: Request, res: Response) => {
   const { id } = req.params
   try {
     const body = actionSchema.parse(req.body)
-    const result = await BrowserManager.getInstance().performAction(id, body.action, body.selector, body.value, body.script, body.x, body.y, body.tabId)
+    const result = await BrowserManager.getInstance().performAction(id, body)
     res.json(result)
   } catch (error: any) {
     res.status(400).json({ error: error.message })

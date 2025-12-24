@@ -3,7 +3,8 @@ FROM node:20-bookworm
 # Install Python, system dependencies for headed environment (Xvfb, etc.), and build tools
 # Switch to Aliyun mirror for better connectivity in China and fix 502 errors
 # Debian Bookworm uses DEB822 format in /etc/apt/sources.list.d/debian.sources by default
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
     apt-get update && apt-get install -y --fix-missing \
     python3 \
     python3-pip \

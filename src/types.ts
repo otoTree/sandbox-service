@@ -14,11 +14,8 @@ export const executeSchema = z.object({
 export type ExecuteRequest = z.infer<typeof executeSchema>
 
 export const createSessionSchema = z.object({
-  device: z.enum(['desktop', 'mobile']).optional(),
-  viewport: z.object({
-    width: z.number(),
-    height: z.number()
-  }).optional()
+  fingerprint: z.any().optional(),
+  storageState: z.any().optional()
 })
 
 export const navigateSchema = z.object({
@@ -47,3 +44,8 @@ export const actionSchema = z.object({
 export type CreateSessionRequest = z.infer<typeof createSessionSchema>
 export type NavigateRequest = z.infer<typeof navigateSchema>
 export type ActionRequest = z.infer<typeof actionSchema>
+
+export const packageSchema = z.object({
+  action: z.enum(['install', 'uninstall']),
+  packages: z.array(z.string().min(1)).min(1)
+})

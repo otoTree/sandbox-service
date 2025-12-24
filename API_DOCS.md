@@ -81,7 +81,9 @@ Creates a new browser session.
   "viewport": {
     "width": 1280,
     "height": 720
-  }
+  },
+  "fingerprint": { ... },
+  "storageState": { ... }
 }
 ```
 
@@ -89,6 +91,8 @@ Creates a new browser session.
 |---|---|---|---|
 | `device` | string | No | 'desktop' or 'mobile'. |
 | `viewport` | object | No | Viewport dimensions (`width`, `height`). |
+| `fingerprint` | object | No | Custom browser fingerprint object. |
+| `storageState` | object | No | Storage state (cookies, localStorage) to restore session. |
 
 **Response:**
 

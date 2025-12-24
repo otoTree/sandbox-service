@@ -14,6 +14,7 @@ interface Session {
   activePageId: string
   lastActive: number
   queue: Promise<any>
+  fingerprint: any
 }
 
 export class BrowserManager {
@@ -84,20 +85,29 @@ export class BrowserManager {
     }
   }
 
-  async createSession(options?: { device?: 'desktop' | 'mobile', viewport?: { width: number, height: number } }) {
+  async createSession(options?: { 
+    fingerprint?: any,
+    storageState?: any
+  }) {
     await this.ensureBrowser()
     if (this.sessions.size >= BROWSER_CONFIG.maxSessions) throw new Error('Max sessions limit reached')
 
-    const fingerprint = this.fingerprintGenerator.getFingerprint({
-        devices: options?.device === 'mobile' ? ['mobile'] : ['desktop'],
+    const fingerprint = options?.fingerprint || this.fingerprintGenerator.getFingerprint({
+        devices: BROWSER_CONFIG.device === 'mobile' ? ['mobile'] : ['desktop'],
         operatingSystems: ['macos', 'windows', 'linux'],
     })
 
-    const context = await this.browser!.newContext({
-        viewport: options?.viewport || fingerprint.fingerprint.screen,
+    const contextOptions: any = {
+        viewport: BROWSER_CONFIG.viewport,
         userAgent: fingerprint.fingerprint.navigator.userAgent,
         locale: fingerprint.fingerprint.navigator.language,
-    })
+    }
+
+    if (options?.storageState) {
+        contextOptions.storageState = options.storageState
+    }
+
+    const context = await this.browser!.newContext(contextOptions)
 
     await this.fingerprintInjector.attachFingerprintToPlaywright(context, fingerprint)
     
@@ -111,7 +121,8 @@ export class BrowserManager {
         pages: new Map([[pageId, page]]), 
         activePageId: pageId,
         lastActive: Date.now(), 
-        queue: Promise.resolve() 
+        queue: Promise.resolve(),
+        fingerprint
     }
 
     // Handle new pages (popups)
@@ -153,6 +164,18 @@ export class BrowserManager {
       const session = this.sessions.get(id)
       if (session) session.lastActive = Date.now()
       return session
+  }
+
+
+  async getSessionState(id: string) {
+      const session = this.getSession(id)
+      if (!session) throw new Error('Session not found')
+      
+      const storageState = await session.context.storageState()
+      return {
+          fingerprint: session.fingerprint,
+          storageState
+      }
   }
 
   private getPage(session: Session, tabId?: string): { page: Page, tabId: string } {

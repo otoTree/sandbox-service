@@ -22,6 +22,16 @@ export const destroySessionHandler = async (req: Request, res: Response) => {
   }
 }
 
+export const getSessionStateHandler = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const state = await BrowserManager.getInstance().getSessionState(id)
+    res.json(state)
+  } catch (error: any) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
 export const navigateHandler = async (req: Request, res: Response) => {
   const { id } = req.params
   try {

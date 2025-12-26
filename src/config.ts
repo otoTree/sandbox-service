@@ -16,18 +16,56 @@ export const BROWSER_CONFIG = {
   device: process.env.BROWSER_DEVICE ? process.env.BROWSER_DEVICE as 'desktop' | 'mobile' : 'desktop'
 }
 
-// Minimal secure-by-default sandbox config
+// System-level highest security sandbox config
 export const sandboxConfig: SandboxRuntimeConfig = {
   network: {
-    allowedDomains: [],
+    allowedDomains: ['pypi.tuna.tsinghua.edu.cn'], // Allow Tsinghua PyPI Mirror
     deniedDomains: [],
-    allowLocalBinding: false,
+    allowLocalBinding: false, // Block binding to local ports
+    allowUnixSockets: [], // Block access to Unix sockets
   },
   filesystem: {
-    denyRead: ['~/.ssh'],
+    // Extensive deny list for sensitive system and user files
+    denyRead: [
+      '/etc/passwd',
+      '/etc/shadow',
+      '/etc/hosts',
+      '~/.ssh',
+      '~/.aws',
+      '~/.kube',
+      '~/.config',
+      '~/.gitconfig',
+      '~/.bash_history',
+      '~/.zshrc',
+      '~/.npmrc',
+      '~/.docker',
+      '~/.env'
+    ],
+    // Only allow writing to current working directory and tmp
     allowWrite: ['.', '/tmp'],
-    denyWrite: ['.env', 'secrets/'],
+    // Protect project integrity by denying write to config, metadata and source
+    denyWrite: [
+      '.env',
+      'secrets/',
+      '.git/',
+      '.github/',
+      'node_modules/',
+      'package.json',
+      'bun.lockb',
+      'yarn.lock',
+      'tsconfig.json',
+      'src/' // Prevent self-modification
+    ],
   },
-  // Enable weaker nested sandbox for unprivileged Docker-like environments
-  enableWeakerNestedSandbox: true,
+  // Disable fallback to weaker isolation - enforce strong sandbox or fail
+  enableWeakerNestedSandbox: false,
+}
+
+/**
+ * Updates the allowed domains in the sandbox configuration.
+ * This function modifies the configuration in place.
+ * Note: SandboxManager needs to be reset and re-initialized for changes to take full effect.
+ */
+export function updateAllowedDomains(domains: string[]) {
+  sandboxConfig.network.allowedDomains = domains;
 }

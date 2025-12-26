@@ -6,6 +6,7 @@ import { executeHandler } from './routes/execute.js'
 import { healthHandler } from './routes/health.js'
 import { listPackagesHandler, managePackageHandler } from './routes/python.js'
 import { createSessionHandler, destroySessionHandler, navigateHandler, actionHandler, getTabsHandler, createTabHandler, closeTabHandler, getContentHandler, getSessionStateHandler } from './routes/browser.js'
+import { updateAllowedDomainsHandler, getConfigHandler } from './routes/config.js'
 import { bearerAuth } from './middleware/auth.js'
 
 // --- Initialize app ---
@@ -16,6 +17,10 @@ app.use(bearerAuth)
 // --- Routes ---
 app.post('/execute', executeHandler)
 app.get('/health', healthHandler)
+
+// Configuration Routes
+app.get('/config', getConfigHandler)
+app.post('/config/allowed-domains', updateAllowedDomainsHandler)
 
 // Python Package Routes
 app.get('/python/packages', listPackagesHandler)
